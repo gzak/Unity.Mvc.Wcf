@@ -4,3 +4,10 @@ obj
 
 # mstest test results
 TestResults
+
+# settings files
+*.suo
+
+# nuget related files
+*.nuspec
+*.nupkg
