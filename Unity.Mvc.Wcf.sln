@@ -12,7 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{099506
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Content", "Content", "{582ECB9D-DBF2-4145-A570-970B9AB3C5CF}"
 	ProjectSection(SolutionItems) = preProject
-		Samples.txt = Samples.txt
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Mvc.Wcf.Tests", "Unity.Mvc.Wcf.Tests\Unity.Mvc.Wcf.Tests.csproj", "{59DF901C-6C56-4BE5-A70B-B888F33E4669}"
