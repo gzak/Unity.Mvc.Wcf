@@ -7,7 +7,11 @@ TestResults
 
 # settings files
 *.suo
+*.user
 
 # nuget related files
 *.nuspec
 *.nupkg
+
+# projects are set to refresh packages automatically during build
+packages
