@@ -1,6 +1,48 @@
 ﻿# Unity.Mvc.Wcf
 
+## What does it do
 
+The goal of this package is to minmize the cross-cutting
+concern of WCF services. Normally, you have two options.
+You can add a WCF Service Reference to your project, which is rather
+clunky as it adds a lot of messy code generated files to
+your solution and requires the service to be acitvely running
+somewhere, which may not always be the case. In fact, many times
+the service hasn't been written yet, just the contract. The
+other option is to provide your own stub implementation which merely
+shuttles parameters and results back and forth between the client
+and the server of the service. This too is less than ideal as it
+forces you to write code.
+
+Furthermore, you can't use the service client as if it were a
+pure interface. You have to always keep it in a `using` block
+or at least remember to `Dispose()` the object when you're done.
+
+With this package, all you need to do is have a contract defined
+and some controllers which expect it as input. The framework will
+generate a stub implementation (which is really all a Service Reference
+does) on demand at runtime based on runtime configurations found in
+your Web.config file (or based on programmatic configurations, if
+you prefer that route).
+
+## Installation
+
+You're more than welcome to clone/fork a copy of this project and
+build it from source yourself (contributions are always welcome),
+but if you'd just like to quickly get going with it you may install
+it via NuGet by running this command in the package manager console:
+
+```
+Install-Package Unity.Mvc.Wcf
+```
+
+The symbol source has also been published, so if you [configure VS](http://www.symbolsource.org/Public/Home/VisualStudio)
+you should be able to step into all the source code and set breakpoints
+as needed without having to download this project from GitHub explicitly.
+
+## Examples
+
+### The Setup
 
 Suppose your WCF service contract looks like this...
 
@@ -12,7 +54,7 @@ public interface IMyService
 }
 ```
 
-And your WCF service implemented the contract like this.
+And your WCF service implemented the contract like below.
 Let's also say it was hosted at http://localhost:1234/MyService.svc
 using basic HTTP binding
 
@@ -24,10 +66,7 @@ public class MyService : IMyService
 ```
 
 Now suppose you have a controller in your MVC application
-which takes an IMyService object in the constructor
-(for dependency injection). Notice the lack of any "using"
-or "Dispose" logic. This package handles the lifecycle of
-the service client object for you.
+which takes an IMyService object in the constructor.
 
 ```C#
 public class MyController : Controller
@@ -52,7 +91,7 @@ or writing an IMyService client that just shuttles parameters and
 results back and forth for each method manually. Below are some examples,
 all of which would live somewhere in the global Application_Start() method:
 
-
+### Programmatic configuration
 
 You can register a client for the WCF service using
 code constructs like BasicHttpBinding and EndpointAddress
@@ -63,7 +102,9 @@ EndpointAddress address = new EndpointAddress("http://localhost:1234/IMyService.
 container.RegisterWcfClientFor<IMyService>(binding, address);
 ```
 
-or, if you have bindings and endpoints configured in
+### Web.config configuration
+
+If you have bindings and endpoints configured in
 your Web.config file (which is a better practice anyway),
 you can register a client for the WCF service using
 those configurations like this (suppose it's called
