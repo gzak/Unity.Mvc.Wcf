@@ -3,16 +3,17 @@
 ## What does it do
 
 The goal of this package is to minmize the cross-cutting
-concern of WCF services. Normally, you have two options.
-You can add a WCF Service Reference to your project, which is rather
-clunky as it adds a lot of messy code generated files to
-your solution and requires the service to be acitvely running
-somewhere, which may not always be the case. In fact, many times
-the service hasn't been written yet, just the contract. The
-other option is to provide your own stub implementation which merely
-shuttles parameters and results back and forth between the client
-and the server of the service. This too is less than ideal as it
-forces you to write code.
+concern of using WCF services in your MVC controllers. Normally,
+you have two options. You can add a WCF Service Reference
+to your project, which is rather clunky as it adds a lot
+of messy code generated files to your solution and requires
+the service to be acitvely running somewhere, which may not
+always be the case. In fact, many times the service hasn't
+been written yet, just the contract. The other option is to
+provide your own stub implementation which merely shuttles
+parameters and results back and forth between the client
+and the server of the service. This too is less than ideal
+as it forces you to write code.
 
 Furthermore, you can't use the service client as if it were a
 pure interface. You have to always keep it in a `using` block
@@ -23,7 +24,11 @@ and some controllers which expect it as input. The framework will
 generate a stub implementation (which is really all a Service Reference
 does) on demand at runtime based on runtime configurations found in
 your Web.config file (or based on programmatic configurations, if
-you prefer that route).
+you prefer that route). **The key is that it saves all this stub
+generation until runtime so you can get on with your life and
+work against the contract rather than wait for a dummy service
+implementation to be hosted somewhere or manually write the stubs
+yourself to decouple yourself from this scenario.**
 
 ## Installation
 
