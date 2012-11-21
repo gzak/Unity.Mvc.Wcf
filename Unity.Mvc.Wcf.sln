@@ -1,5 +1,5 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 11
+# Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Mvc.Wcf.Net40", "Unity.Mvc.Wcf.Net40\Unity.Mvc.Wcf.Net40.csproj", "{AE60C196-1A15-4F60-AB40-706B4F03C990}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unity.Mvc.Wcf.Net45", "Unity.Mvc.Wcf.Net45\Unity.Mvc.Wcf.Net45.csproj", "{44D579B0-90E1-4B13-A509-DB4EC25677F3}"

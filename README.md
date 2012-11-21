@@ -1,6 +1,6 @@
-﻿# Unity.Mvc.Wcf
+# Unity.Mvc.Wcf
 
-## What does it do
+## What it does
 
 The goal of this package is to minmize the cross-cutting
 concern of using WCF services in your MVC controllers. Normally,
@@ -28,7 +28,7 @@ you prefer that route). **The key is that it saves all this stub
 generation until runtime so you can get on with your life and
 work against the contract rather than wait for a dummy service
 implementation to be hosted somewhere or manually write the stubs
-yourself to decouple yourself from this scenario.**
+yourself to decouple yourself from this scenario**.
 
 ## Installation
 
@@ -60,8 +60,8 @@ public interface IMyService
 ```
 
 And your WCF service implemented the contract like below.
-Let's also say it was hosted at http://localhost:1234/MyService.svc
-using basic HTTP binding
+Let's also say it will be hosted at http://localhost:1234/MyService.svc
+using basic HTTP binding...
 
 ```C#
 public class MyService : IMyService
@@ -71,7 +71,7 @@ public class MyService : IMyService
 ```
 
 Now suppose you have a controller in your MVC application
-which takes an IMyService object in the constructor.
+which takes an IMyService object in the constructor...
 
 ```C#
 public class MyController : Controller
@@ -94,7 +94,7 @@ Using this package, you can register various "implementations"
 of that interface with Unity without using a clunky service reference
 or writing an IMyService client that just shuttles parameters and
 results back and forth for each method manually. Below are some examples,
-all of which would live somewhere in the global Application_Start() method:
+all of which would live somewhere in the global Application_Start() method.
 
 ### Programmatic configuration
 
@@ -129,7 +129,7 @@ the client disposed. Under the hood, these are equivalent to calling
 But suppose you want to cap the number of connections to the service
 (say 15 connections max), and you want your app to block until
 a connection becomes available if you exceed this limit, then you
-can manually specify an instance of IProxyPool to manage this
+can manually specify an instance of IProxyPool to manage this:
 
 ```C#
 LimitedProxyPool<IMyService> limited = new LimitedProxyPool<IMyService>(15, "BasicHttpBinding_IMyService");
