@@ -7,7 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Practices.Unity;
-using ISyncCollection = System.Collections.ICollection;
 
 namespace Unity.Mvc.Wcf
 {
@@ -164,9 +163,10 @@ namespace Unity.Mvc.Wcf
             {
                 return pool.RequestProxy();
             }
-            finally
+            catch
             {
                 semaphore.Release();
+                throw;
             }
         }
 
@@ -206,7 +206,7 @@ namespace Unity.Mvc.Wcf
     {
         private Semaphore semaphore;
         private ChannelFactory<TContract> factory;
-        private Queue<TContract> availableChannels;
+        private HashSet<TContract> availableChannels;
         private HashSet<TContract> allChannels;
 
         private PersistentClientPool(int count, ChannelFactory<TContract> fact)
@@ -215,12 +215,12 @@ namespace Unity.Mvc.Wcf
             {
                 factory = fact;
                 semaphore = new Semaphore(count, count);
-                availableChannels = new Queue<TContract>(count);
+                availableChannels = new HashSet<TContract>();
                 allChannels = new HashSet<TContract>();
                 for (int i = 0; i < count; i++)
                 {
                     var channel = fact.CreateChannel();
-                    availableChannels.Enqueue(channel);
+                    availableChannels.Add(channel);
                     allChannels.Add(channel);
                 }
             }
@@ -269,12 +269,17 @@ namespace Unity.Mvc.Wcf
             {
                 // empty queue blocks until something is in the queue,
                 // no need to check for empty queue.
-                lock ((availableChannels as ISyncCollection).SyncRoot)
-                    return availableChannels.Dequeue();
+                lock (availableChannels)
+                {
+                    var first = availableChannels.First();
+                    availableChannels.Remove(first);
+                    return first;
+                }
             }
-            finally
+            catch
             {
                 semaphore.Release();
+                throw;
             }
         }
 
@@ -284,10 +289,10 @@ namespace Unity.Mvc.Wcf
         /// <param name="channel">The smart proxy instance to release.</param>
         public bool ReleaseProxy(TContract channel)
         {
-            if (allChannels.Contains(channel))
+            if (allChannels.Contains(channel) && !availableChannels.Contains(channel))
             {
-                lock ((availableChannels as ISyncCollection).SyncRoot)
-                    availableChannels.Enqueue(channel);
+                lock (availableChannels)
+                    availableChannels.Add(channel);
                 semaphore.Release(); // again, only release on success rather than in finally
                 return true;
             }
