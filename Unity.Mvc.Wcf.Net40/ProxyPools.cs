@@ -273,6 +273,18 @@ namespace Unity.Mvc.Wcf
                 {
                     var first = availableChannels.First();
                     availableChannels.Remove(first);
+                    var comm = first as ICommunicationObject;
+
+                    if (comm.State == CommunicationState.Faulted)
+                    {
+                        allChannels.Remove(first);
+
+                        ((ICommunicationObject)first).Abort();
+                        first = factory.CreateChannel();
+
+                        allChannels.Add(first);
+                    }
+
                     return first;
                 }
             }
