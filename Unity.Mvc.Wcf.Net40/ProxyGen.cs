@@ -54,14 +54,16 @@ namespace Unity.Mvc.Wcf
                     return proxy; // cache previously generated proxies
                 else
                 {
-                    var meths = tContract.GetMethods();
+                    List<MethodInfo> meths = new List<MethodInfo>(tContract.GetMethods());
+
+                    InheritedInterfacesGetMethods(tContract, ref meths);
 
                     // I initially started implementing some of these cases but decided it was too much work... for now ;-)
                     // currently, these cases are simply disallowed (it will throw an exception if attempted)
 #if NET40
-                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any() && !meths.Any(m => m.IsGenericMethod) && !tContract.GetInterfaces().Any())
+                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any() && !meths.Any(m => m.IsGenericMethod))
 #elif NET45
-                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes<ServiceContractAttribute>(true).Any() && !meths.Any(m => m.IsGenericMethod) && !tContract.GetInterfaces().Any())
+                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes<ServiceContractAttribute>(true).Any() && !meths.Any(m => m.IsGenericMethod))
 #endif
                     {
                         // in case a different contract has the same name as another registered contract
@@ -104,6 +106,24 @@ namespace Unity.Mvc.Wcf
                     else
                         throw new InvalidOperationException(string.Format("{0} is not a valid or supported WCF service contract interface.", tContract.FullName));
                 }
+            }
+        }
+
+        /// <summary>
+        /// Gets methods from a interface and from his inheritance hierarchy recursively.
+        /// </summary>
+        /// <param name="type">Interface type to obtain methods.</param>
+        /// <param name="colMethodInfos">Method collection to populate.</param>
+        private static void InheritedInterfacesGetMethods(Type type, ref List<MethodInfo> colMethodInfos)
+        {
+            Type[] colTypes = type.GetInterfaces();
+
+            foreach (Type oType in colTypes)
+            {
+                foreach (MethodInfo oMethodInfo in oType.GetMethods())
+                    colMethodInfos.Add(oMethodInfo);
+
+                InheritedInterfacesGetMethods(oType, ref colMethodInfos);
             }
         }
 
