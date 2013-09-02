@@ -55,16 +55,18 @@ namespace Unity.Mvc.Wcf
                 else
                 {
                     List<MethodInfo> meths = new List<MethodInfo>(tContract.GetMethods());
+                    InheritedInterfacesGetMethods(tContract, meths);
+                    
+                    bool bThereAreGenericMethods = meths.Any(m => m.IsGenericMethod);
 
-                    InheritedInterfacesGetMethods(tContract, ref meths);
+                    bool bHasServiceContractAttributes = false;
+                    HasServiceContractAttributes(tContract, ref bHasServiceContractAttributes);
 
                     // I initially started implementing some of these cases but decided it was too much work... for now ;-)
                     // currently, these cases are simply disallowed (it will throw an exception if attempted)
-#if NET40
-                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any() && !meths.Any(m => m.IsGenericMethod))
-#elif NET45
-                    if (tContract.IsInterface && !tContract.ContainsGenericParameters && tContract.GetCustomAttributes<ServiceContractAttribute>(true).Any() && !meths.Any(m => m.IsGenericMethod))
-#endif
+                    if (tContract.IsInterface
+                    && bHasServiceContractAttributes
+                    && !bThereAreGenericMethods)
                     {
                         // in case a different contract has the same name as another registered contract
                         // e.g.: NmSpc1.IService and NmSpc2.IService... same name, different contracts
@@ -114,7 +116,7 @@ namespace Unity.Mvc.Wcf
         /// </summary>
         /// <param name="type">Interface type to obtain methods.</param>
         /// <param name="colMethodInfos">Method collection to populate.</param>
-        private static void InheritedInterfacesGetMethods(Type type, ref List<MethodInfo> colMethodInfos)
+        private static void InheritedInterfacesGetMethods(Type type, List<MethodInfo> colMethodInfos)
         {
             Type[] colTypes = type.GetInterfaces();
 
@@ -123,7 +125,31 @@ namespace Unity.Mvc.Wcf
                 foreach (MethodInfo oMethodInfo in oType.GetMethods())
                     colMethodInfos.Add(oMethodInfo);
 
-                InheritedInterfacesGetMethods(oType, ref colMethodInfos);
+                InheritedInterfacesGetMethods(oType, colMethodInfos);
+            }
+        }
+
+        private static void HasServiceContractAttributes(Type type, ref bool hasServiceContractAttributes)
+        {
+#if NET40
+            hasServiceContractAttributes = type.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any();
+#elif NET45
+            hasServiceContractAttributes = type.GetCustomAttributes<ServiceContractAttribute>(true).Any();
+#endif
+            if (hasServiceContractAttributes)
+            {
+                Type[] colTypes = type.GetInterfaces();
+
+                foreach (Type oType in colTypes)
+                {
+                    hasServiceContractAttributes = oType.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any();
+
+                    if (hasServiceContractAttributes)
+                        HasServiceContractAttributes(oType, ref hasServiceContractAttributes);
+                   
+                    if(!hasServiceContractAttributes)
+                        break;
+                }
             }
         }
 
