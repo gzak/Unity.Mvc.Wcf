@@ -1,24 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.ServiceModel;
 using System.Threading.Tasks;
-using System.ServiceModel;
-using System.ServiceModel.Description;
 
 namespace Unity.Mvc.Wcf.Tests
 {
     [ServiceContract]
-    public interface ITestService
+    public interface ITestService1
     {
-        [OperationContract] string Ping();
+        [OperationContract] Task<string> Ping();
+    }
+
+    [ServiceContract]
+    public interface ITestService2
+    {
         int Number { [OperationContract] get; [OperationContract] set; }
     }
 
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
-    public class TestService : ITestService
+    [ServiceContract]
+    public interface ITestService<T> : ITestService1, ITestService2
     {
-        public string Ping() { return "Hello World"; }
+        [OperationContract] Task<T> Generic();
+    }
+
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.Single)]
+    public class TestService<T> : ITestService<T>
+    {
+        public Task<T> Generic() { return Task.FromResult(default(T)); }
+        public Task<string> Ping() { return Task.FromResult("Hello World"); }
         public int Number { get; set; }
     }
 }

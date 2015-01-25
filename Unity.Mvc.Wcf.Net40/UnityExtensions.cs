@@ -1,12 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Reflection;
-using System.Threading.Tasks;
 using Microsoft.Practices.Unity;
 using System.ServiceModel;
-using System.Web.Mvc;
 using System.ServiceModel.Channels;
 
 namespace Unity.Mvc.Wcf
@@ -21,7 +15,7 @@ namespace Unity.Mvc.Wcf
         /// <param name="pool">The proxy pool manager associated with the WCF contract.</param>
         public static IUnityContainer RegisterWcfClientFor<TContract>(this IUnityContainer container, IProxyPool<TContract> pool)
         {
-            return container.RegisterWcfClientFor<TContract>(pool, null);
+            return container.RegisterWcfClientFor(pool, null);
         }
 
         /// <summary>
@@ -39,7 +33,7 @@ namespace Unity.Mvc.Wcf
 
             var t = typeof(TContract);
             return container
-                .RegisterInstance<IProxyPool<TContract>>(name, pool)
+                .RegisterInstance(name, pool)
                 .RegisterType(t, ProxyGen.GenerateProxy(t), name, new HierarchicalLifetimeManager());
         }
 

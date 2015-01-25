@@ -5,8 +5,6 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using System.ServiceModel;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Practices.Unity;
 using ISyncCollection = System.Collections.ICollection;
 
@@ -19,10 +17,10 @@ namespace Unity.Mvc.Wcf
     internal static class ProxyGen
     {
         // the in-memory assembly which will store all the generated smart proxies
-        private static readonly AssemblyBuilder _dynamicAssembly = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName("Unity.Mvc.Wcf.{Dynamic}"), AssemblyBuilderAccess.Run);
+        private static readonly AssemblyBuilder _dynamicAssembly = AppDomain.CurrentDomain.DefineDynamicAssembly(new AssemblyName("Unity.Mvc.Wcf._Dynamic_"), AssemblyBuilderAccess.Run);
 
         // the in-memory module which will store all the generated smart proxies
-        private static readonly ModuleBuilder _dynamicModule = _dynamicAssembly.DefineDynamicModule("Unity.Mvc.Wcf.{Dynamic}.dll");
+        private static readonly ModuleBuilder _dynamicModule = _dynamicAssembly.DefineDynamicModule("Unity.Mvc.Wcf._Dynamic_.dll");
 
         // for adding [CompilerGenerated] to the generated proxy's private fields
         private static readonly CustomAttributeBuilder _compGen = new CustomAttributeBuilder(typeof(CompilerGeneratedAttribute).GetConstructor(Type.EmptyTypes), new object[] { });
@@ -52,27 +50,17 @@ namespace Unity.Mvc.Wcf
                 Type proxy;
                 if (_dynamic.TryGetValue(tContract, out proxy))
                     return proxy; // cache previously generated proxies
-                else
+                else if (tContract.IsInterface && !tContract.IsGenericTypeDefinition)
                 {
-                    List<MethodInfo> meths = new List<MethodInfo>(tContract.GetMethods());
-                    InheritedInterfacesGetMethods(tContract, meths);
-                    
-                    bool bThereAreGenericMethods = meths.Any(m => m.IsGenericMethod);
-
-                    bool bHasServiceContractAttributes = false;
-                    HasServiceContractAttributes(tContract, ref bHasServiceContractAttributes);
-
-                    // I initially started implementing some of these cases but decided it was too much work... for now ;-)
-                    // currently, these cases are simply disallowed (it will throw an exception if attempted)
-                    if (tContract.IsInterface
-                    && bHasServiceContractAttributes
-                    && !bThereAreGenericMethods)
+                    var interfaces = InterfaceAggregator.GetAllInterfaces(tContract).ToList();
+                    if (AllHaveServiceContractAttributes(interfaces))
                     {
+                        var meths = GetAllMethods(interfaces).ToList();
                         // in case a different contract has the same name as another registered contract
-                        // e.g.: NmSpc1.IService and NmSpc2.IService... same name, different contracts
+                        // e.g.: Namespace1.IService and Namespace2.IService... same names, different contracts
                         int nameCount;
                         _names.TryGetValue(tContract.Name, out nameCount);
-                        var name = string.Format("Unity.Mvc.Wcf.{{Dynamic}}.{0}_Proxy_{1}", tContract.Name, nameCount);
+                        var name = string.Format("Unity.Mvc.Wcf._Dynamic_.{0}_Proxy_{1}", tContract.Name, nameCount);
                         _names[tContract.Name] = nameCount + 1;
 
                         // new type which implements the contract and IDisposable
@@ -89,11 +77,11 @@ namespace Unity.Mvc.Wcf
                         pool.SetCustomAttribute(_compGen);
 
                         // implement contract methods by simply wrapping calls to the real proxy
-                        foreach (var meth in meths/*.Where(m => !m.IsSpecialName)*/) // no special names to avoid property getters/setters
+                        foreach (var meth in meths)
                             MethodBuilderHelper(builder, client, meth);
 
                         // implement contract properties by simply wrapping calls to the real proxy
-                        foreach (var prop in tContract.GetProperties())
+                        foreach (var prop in GetAllProperties(interfaces))
                             PropertyBuilderHelper(builder, client, prop);
 
                         // implement Dispose method to call the connection pool manager to release the connection
@@ -105,51 +93,9 @@ namespace Unity.Mvc.Wcf
                         // cache and return
                         return _dynamic[tContract] = builder.CreateType();
                     }
-                    else
-                        throw new InvalidOperationException(string.Format("{0} is not a valid or supported WCF service contract interface.", tContract.FullName));
                 }
-            }
-        }
 
-        /// <summary>
-        /// Gets methods from a interface and from his inheritance hierarchy recursively.
-        /// </summary>
-        /// <param name="type">Interface type to obtain methods.</param>
-        /// <param name="colMethodInfos">Method collection to populate.</param>
-        private static void InheritedInterfacesGetMethods(Type type, List<MethodInfo> colMethodInfos)
-        {
-            Type[] colTypes = type.GetInterfaces();
-
-            foreach (Type oType in colTypes)
-            {
-                foreach (MethodInfo oMethodInfo in oType.GetMethods())
-                    colMethodInfos.Add(oMethodInfo);
-
-                InheritedInterfacesGetMethods(oType, colMethodInfos);
-            }
-        }
-
-        private static void HasServiceContractAttributes(Type type, ref bool hasServiceContractAttributes)
-        {
-#if NET40
-            hasServiceContractAttributes = type.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any();
-#elif NET45
-            hasServiceContractAttributes = type.GetCustomAttributes<ServiceContractAttribute>(true).Any();
-#endif
-            if (hasServiceContractAttributes)
-            {
-                Type[] colTypes = type.GetInterfaces();
-
-                foreach (Type oType in colTypes)
-                {
-                    hasServiceContractAttributes = oType.GetCustomAttributes(typeof(ServiceContractAttribute), true).Any();
-
-                    if (hasServiceContractAttributes)
-                        HasServiceContractAttributes(oType, ref hasServiceContractAttributes);
-                   
-                    if(!hasServiceContractAttributes)
-                        break;
-                }
+                throw new InvalidOperationException(string.Format("{0} is not a valid or supported WCF service contract interface.", tContract.FullName));
             }
         }
 
@@ -260,9 +206,9 @@ namespace Unity.Mvc.Wcf
         /// by simply delegating the call to the corresponding method of the
         /// underlying "client".
         /// </summary>
-        /// <param name="builder"></param>
-        /// <param name="client"></param>
-        /// <param name="meth"></param>
+        /// <param name="builder">The type builder for which to generate the implementing method.</param>
+        /// <param name="client">The WCF contract field.</param>
+        /// <param name="meth">The method of the WCF contract interface to implement.</param>
         private static void MethodBuilderHelper(TypeBuilder builder, FieldBuilder client, MethodInfo meth)
         {
             var mi = builder.DefineMethod(meth.Name, methAttr);
@@ -279,6 +225,38 @@ namespace Unity.Mvc.Wcf
                 body.LoadArg(i);
             body.Emit(OpCodes.Callvirt, meth);
             body.Emit(OpCodes.Ret);
+        }
+
+        /// <summary>
+        /// Get all methods from all interfaces.
+        /// </summary>
+        /// <param name="interfaces">Interface types from which to obtain methods.</param>
+        private static IEnumerable<MethodInfo> GetAllMethods(IEnumerable<Type> interfaces)
+        {
+            // no special names to avoid property getters/setters
+            return interfaces.SelectMany(i => i.GetMethods()).Where(m => !m.IsSpecialName);
+        }
+
+        /// <summary>
+        /// Get all properties from all interfaces.
+        /// </summary>
+        /// <param name="interfaces">Interface types from which to obtain methods.</param>
+        private static IEnumerable<PropertyInfo> GetAllProperties(IEnumerable<Type> interfaces)
+        {
+            return interfaces.SelectMany(i => i.GetProperties());
+        }
+
+        /// <summary>
+        /// Ensure all interfaces have a ServiceContract attribute.
+        /// </summary>
+        /// <param name="interfaces">Interface types to check.</param>
+        private static bool AllHaveServiceContractAttributes(IEnumerable<Type> interfaces)
+        {
+#if NET40
+            return interfaces.All(i => i.GetCustomAttributes(typeof(ServiceContractAttribute), false).Any());
+#elif NET45
+            return interfaces.All(i => i.GetCustomAttributes<ServiceContractAttribute>(false).Any());
+#endif
         }
     }
 }

@@ -15,3 +15,6 @@ TestResults
 
 # projects are set to refresh packages automatically during build
 packages
+
+# solution ide files
+*.sln.ide

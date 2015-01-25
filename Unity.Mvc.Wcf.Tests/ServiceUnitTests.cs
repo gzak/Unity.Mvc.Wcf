@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Text;
-using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.ServiceModel;
 using System.ServiceModel.Description;
@@ -8,6 +6,7 @@ using Microsoft.Practices.Unity;
 using System.Linq;
 using System.Threading;
 using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Unity.Mvc.Wcf.Tests
 {
@@ -22,29 +21,22 @@ namespace Unity.Mvc.Wcf.Tests
         [TestMethod]
         public void ContainerDisposeTest()
         {
-            try
+            using (var container = initContainer())
             {
-                using (var container = initContainer())
+                foreach (var i in Enumerable.Range(0, 10))
                 {
-                    foreach (var i in Enumerable.Range(0, 10))
+                    using (var child = container.CreateChildContainer())
                     {
-                        using (var child = container.CreateChildContainer())
-                        {
-                            var client = child.Resolve<ITestService>();
-                        }
+                        var client = child.Resolve<ITestService<int>>();
                     }
                 }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail("Exception seen: {0}", e.Message);
             }
         }
 
         [TestMethod]
-        public void CallMethod()
+        public async Task CallMethod()
         {
-            using (var host = initHost())
+            using (var host = await initHost())
             {
                 using (var container = initContainer())
                 {
@@ -52,8 +44,8 @@ namespace Unity.Mvc.Wcf.Tests
                     {
                         using (var child = container.CreateChildContainer())
                         {
-                            var client = child.Resolve<ITestService>();
-                            Assert.AreEqual(client.Ping(), "Hello World");
+                            var client = child.Resolve<ITestService<int>>();
+                            Assert.AreEqual(await client.Ping(), "Hello World");
                         }
                     }
                 }
@@ -61,9 +53,28 @@ namespace Unity.Mvc.Wcf.Tests
         }
 
         [TestMethod]
-        public void PropertyGetterSetter()
+        public async Task CallGenericMethod()
         {
-            using (var host = initHost())
+            using (var host = await initHost())
+            {
+                using (var container = initContainer())
+                {
+                    foreach (int i in Enumerable.Range(0, 10))
+                    {
+                        using (var child = container.CreateChildContainer())
+                        {
+                            var client = child.Resolve<ITestService<int>>();
+                            Assert.AreEqual(await client.Generic(), default(int));
+                        }
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task PropertyGetterSetter()
+        {
+            using (var host = await initHost())
             {
                 using (var container = initContainer())
                 {
@@ -71,7 +82,7 @@ namespace Unity.Mvc.Wcf.Tests
                     {
                         using (var child = container.CreateChildContainer())
                         {
-                            var client = child.Resolve<ITestService>();
+                            var client = child.Resolve<ITestService<int>>();
                             client.Number = i;
                             Assert.AreEqual(client.Number, i);
                         }
@@ -81,11 +92,11 @@ namespace Unity.Mvc.Wcf.Tests
         }
 
         [TestMethod]
-        public void LimitedPool()
+        public async Task LimitedPool()
         {
-            using (var host = initHost())
+            using (var host = await initHost())
             {
-                using (var container = initContainer(new LimitedProxyPool<ITestService>(
+                using (var container = initContainer(new LimitedProxyPool<ITestService<int>>(
                     1,
                     new BasicHttpBinding(),
                     new EndpointAddress(baseAddress))))
@@ -93,18 +104,18 @@ namespace Unity.Mvc.Wcf.Tests
                     using (var child1 = container.CreateChildContainer())
                     {
                         var blockCheck = false;
-                        var client1 = child1.Resolve<ITestService>();
+                        var client1 = child1.Resolve<ITestService<int>>();
                         var t = new Thread(() => {
                             using (var child2 = container.CreateChildContainer())
                             {
-                                var client2 = child2.Resolve<ITestService>();
+                                var client2 = child2.Resolve<ITestService<int>>();
                                 blockCheck = true;
                             }
                         });
                         t.Start();
 
                         Thread.Sleep(TimeSpan.FromSeconds(1));
-                        Assert.AreEqual(client1.Ping(), "Hello World");
+                        Assert.AreEqual(await client1.Ping(), "Hello World");
                         Assert.IsFalse(blockCheck);
 
                         (client1 as IDisposable).Dispose();
@@ -117,11 +128,11 @@ namespace Unity.Mvc.Wcf.Tests
         }
 
         [TestMethod]
-        public void PersistentPool()
+        public async Task PersistentPool()
         {
-            using (var host = initHost())
+            using (var host = await initHost())
             {
-                using (var container = initContainer(new PersistentClientPool<ITestService>(
+                using (var container = initContainer(new PersistentClientPool<ITestService<int>>(
                     1,
                     new BasicHttpBinding(),
                     new EndpointAddress(baseAddress))))
@@ -130,12 +141,12 @@ namespace Unity.Mvc.Wcf.Tests
                     {
                         using (var child2 = container.CreateChildContainer())
                         {
-                            var client1 = child1.Resolve<ITestService>();
-                            Assert.AreEqual(client1.Ping(), "Hello World");
+                            var client1 = child1.Resolve<ITestService<int>>();
+                            Assert.AreEqual(await client1.Ping(), "Hello World");
                             (client1 as IDisposable).Dispose();
 
-                            var client2 = child2.Resolve<ITestService>();
-                            Assert.AreEqual(client2.Ping(), "Hello World");
+                            var client2 = child2.Resolve<ITestService<int>>();
+                            Assert.AreEqual(await client2.Ping(), "Hello World");
 
                             Assert.AreEqual(new ClientComparer { Client = client1 },
                                             new ClientComparer { Client = client2 });
@@ -167,31 +178,31 @@ namespace Unity.Mvc.Wcf.Tests
         //
         #endregion
 
-        private static ServiceHost initHost()
+        private static async Task<ServiceHost> initHost()
         {
-            var host = new ServiceHost(typeof(TestService), baseAddress);
+            var host = new ServiceHost(typeof(TestService<int>), baseAddress);
             var smb = new ServiceMetadataBehavior { HttpGetEnabled = true };
             smb.MetadataExporter.PolicyVersion = PolicyVersion.Policy15;
             host.Description.Behaviors.Add(smb);
-            host.Open();
+            await Task.Factory.FromAsync(host.BeginOpen, host.EndOpen, null);
             return host;
         }
 
         private static IUnityContainer initContainer()
         {
-            return initContainer(new UnlimitedProxyPool<ITestService>(
+            return initContainer(new UnlimitedProxyPool<ITestService<int>>(
                 new BasicHttpBinding(),
                 new EndpointAddress(baseAddress)));
         }
 
-        private static IUnityContainer initContainer(IProxyPool<ITestService> proxyPool)
+        private static IUnityContainer initContainer(IProxyPool<ITestService<int>> proxyPool)
         {
-            return (new UnityContainer()).RegisterWcfClientFor<ITestService>(proxyPool);
+            return (new UnityContainer()).RegisterWcfClientFor(proxyPool);
         }
 
         private class ClientComparer
         {
-            public ITestService Client { get; set; }
+            public ITestService<int> Client { get; set; }
 
             public override bool Equals(object obj)
             {
